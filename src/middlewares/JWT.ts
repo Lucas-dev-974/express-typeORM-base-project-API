@@ -3,7 +3,11 @@ import { UtilsAuthentication } from "../utils/auth.util";
 import _public from "../routes/public";
 
 export class JWTMiddleware {
-  static checkBearerToken(req: Request, res: Response, next: NextFunction) {
+  static checkBearerToken(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): any {
     if (JWTMiddleware.isPublic(req.method, req.path)) return next();
 
     const token = UtilsAuthentication.getBearerToken(req);
