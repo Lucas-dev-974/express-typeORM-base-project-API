@@ -1,6 +1,8 @@
 import jwt, { TokenExpiredError } from "jsonwebtoken";
 import { Request } from "express";
 import bcrypt from "bcrypt";
+import dotenv from "dotenv";
+dotenv.config();
 
 export type UserTokenInformationType = {
   email: string;
