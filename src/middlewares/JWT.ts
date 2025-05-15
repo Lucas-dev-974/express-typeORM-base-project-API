@@ -7,8 +7,10 @@ export class JWTMiddleware {
     if (JWTMiddleware.isPublic(req.method, req.path)) return next();
 
     const token = UtilsAuthentication.getBearerToken(req);
-    if (typeof UtilsAuthentication.checkToken(token) == "object") {
-      res.locals.user = UtilsAuthentication.checkToken(token);
+    const user = UtilsAuthentication.checkToken(token);
+
+    if (typeof user == "object") {
+      res.locals.user = user;
       return next();
     } else return res.status(401).json("Accès non autorisé.");
   }
