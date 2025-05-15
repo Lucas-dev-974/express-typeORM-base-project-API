@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
+import { JWTMiddleware } from "./middlewares/JWT";
+
 dotenv.config();
 
 const app = express();
@@ -17,6 +19,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(JWTMiddleware.checkBearerToken);
 
 AppDataSource.initialize()
   .then(() => {
