@@ -25,6 +25,7 @@ AppDataSource.initialize()
     const routesPath = path.join(__dirname, "routes");
     fs.readdirSync(routesPath).forEach((file) => {
       if (file.endsWith(".ts") || file.endsWith(".js")) {
+        if (file === "public.ts") return; // Skip public.ts
         const route = require(path.join(routesPath, file));
         app.use(route.default);
       }
