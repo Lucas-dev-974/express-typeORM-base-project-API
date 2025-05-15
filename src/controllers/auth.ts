@@ -119,6 +119,13 @@ class AuthController {
 
     try {
       const tokenData = UtilsAuthentication.checkToken(bearer) as JwtPayload;
+      if (!tokenData) {
+        res
+          .status(400)
+          .send({ error: "Token invalide, veuillez vous reconnecter." });
+        return;
+      }
+
       const userRepository = getRepo(User);
       const user = (await userRepository.findOne({
         where: { email: tokenData.email },
