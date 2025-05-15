@@ -7,6 +7,32 @@ import { getRepo } from "../app-source";
 import Validator from "validatorjs";
 
 class AuthController {
+  constructor() {
+    this.login = this.login.bind(this);
+    this.register = this.register.bind(this);
+    this.me = this.me.bind(this);
+  }
+
+  private handleError(res: Response, error: any, context: string): void {
+    const detailedError = {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      code: (error as any).code || "UNKNOWN_ERROR",
+    };
+
+    logger.write(context, logger.getContentErrorMessage(error));
+    res.status(500).send({
+      error: "Une erreur s'est produite, veuillez réessayer ultérieurement.",
+      detailedError,
+    });
+  }
+
+  private sanitizeUser(user: User): Partial<User> {
+    const { password, ...sanitizedUser } = user;
+    return sanitizedUser;
+  }
+
   public async login(req: Request, res: Response): Promise<void> {
     const validator = new Validator(req.body, {
       email: "required|email",
@@ -22,44 +48,23 @@ class AuthController {
     const userRepository = getRepo(User);
 
     try {
-      // Check if user exists
-      const user = await userRepository.findOne({ where: { email } });
-      if (!user) {
+      const user = (await userRepository.findOne({ where: { email } })) as User;
+      if (
+        !user ||
+        !(await UtilsAuthentication.check(password, user.password))
+      ) {
         res.status(400).send({ error: "Vos identifiants sont incorrects." });
         return;
       }
 
-      // Check if password is correct
-      const isPasswordValid = await UtilsAuthentication.check(
-        password,
-        user.password
-      );
-
-      if (!isPasswordValid) {
-        res.status(400).send({ error: "Vos identifiants sont incorrects." });
-        return;
-      }
-
-      // Generate JWT
       const token = UtilsAuthentication.generateToken({ email, id: user.id });
 
       res.status(200).send({
-        user,
+        user: this.sanitizeUser(user),
         token,
       });
     } catch (error) {
-      const detailedError = {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-        code: (error as any).code || "UNKNOWN_ERROR",
-      };
-
-      logger.write("Authentication", logger.getContentErrorMessage(error));
-      res.status(500).send({
-        error: "Une erreur c'est produite, veuillez réesayer ultérieurement",
-        detailedError,
-      });
+      this.handleError(res, error, "Authentication - Login");
     }
   }
 
@@ -69,18 +74,20 @@ class AuthController {
       password: "string|required",
     });
 
-    if (validator.fails()) res.status(400).send(validator.errors.all());
+    if (validator.fails()) {
+      res.status(400).send(validator.errors.all());
+      return;
+    }
 
     const { email, password } = req.body;
     const userRepository = getRepo(User);
 
     try {
-      // Check if user already exists
       const existingUser = await userRepository.findOne({ where: { email } });
       if (existingUser) {
         res.status(400).send({
           error:
-            "Un compte avec l'addresse email que vous avez renseigner existe déjà, veuillez vous connecté.",
+            "Un compte avec l'adresse email que vous avez renseignée existe déjà, veuillez vous connecter.",
         });
         return;
       }
@@ -88,30 +95,16 @@ class AuthController {
       const user = userRepository.create({
         email,
         password: await UtilsAuthentication.hash(password),
-      });
+      }) as User;
 
-      // Save the user to the database
       await userRepository.save(user);
 
       res.status(201).send({
-        user,
+        user: this.sanitizeUser(user),
         token: UtilsAuthentication.generateToken({ email, id: user.id }),
       });
     } catch (error) {
-      const detailedError = {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-        code: (error as any).code || "UNKNOWN_ERROR",
-      };
-      logger.write(
-        "Authentication",
-        detailedError.name + detailedError.message
-      );
-      res.status(500).send({
-        error: "Une erreur c'est produite, veuillez réesayer ultérieurement",
-        detailedError,
-      });
+      this.handleError(res, error, "Authentication - Register");
     }
   }
 
@@ -120,18 +113,26 @@ class AuthController {
     if (!bearer) {
       res
         .status(400)
-        .send({ error: "token invalide, veuillez vous reconnecté." });
+        .send({ error: "Token invalide, veuillez vous reconnecter." });
       return;
     }
 
-    const tokenData = UtilsAuthentication.checkToken(bearer) as JwtPayload;
+    try {
+      const tokenData = UtilsAuthentication.checkToken(bearer) as JwtPayload;
+      const userRepository = getRepo(User);
+      const user = (await userRepository.findOne({
+        where: { email: tokenData.email },
+      })) as User;
 
-    const userRepository = getRepo(User);
-    const user = await userRepository.findOne({
-      where: { email: tokenData.email },
-    });
+      if (!user) {
+        res.status(404).send({ error: "Utilisateur non trouvé." });
+        return;
+      }
 
-    res.status(200).send(user);
+      res.status(200).send(this.sanitizeUser(user));
+    } catch (error) {
+      this.handleError(res, error, "Authentication - Me");
+    }
   }
 }
 
