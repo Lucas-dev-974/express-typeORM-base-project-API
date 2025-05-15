@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
+dotenv.config();
 
 const app = express();
 const corsOptions = {
