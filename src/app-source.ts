@@ -8,3 +8,7 @@ export const AppDataSource = new DataSource({
   logging: false,
   entities: [process.env.ENTITIES_FOLDER || "src/entities/**/*.ts"],
 });
+
+export function getRepo(entity: any) {
+  return AppDataSource.getRepository(entity);
+}
